@@ -107,30 +107,14 @@ export default function Authentification(props) {
               </Button>
               
               <TouchableOpacity 
-                
-                onPress={() => {
-                  if (email.length < 5 || password.length < 5) {
-                    alert('Email and password must be at least 5 characters long');
-                    return;
-                  }
-                  
-                  auth.createUserWithEmailAndPassword(email, password)
-                    .then((userCredential) => {
-                      const user = userCredential.user;
-                      alert('Account created successfully!');
-                      props.navigation.navigate('Accueil');
-                    })
-                    .catch((error) => {
-                      alert(error.message);
-                    });
-                }}>
+                onPress={() => props.navigation.navigate('Signup')}
+                >
                 <Text
                   style={{
                     color: "white",
                     textDecorationLine: "underline",
-                    marginTop: 20, // Cleaned up margins
+                    marginTop: 20,
                   }}
-
                 >
                   Create an account
                 </Text>

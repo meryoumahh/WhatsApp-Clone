@@ -10,31 +10,31 @@ export default function List(props) {
   const database = initapp.database();
 
   const ref = database.ref();
-  const ref_list = ref.child("profils");
+  const ref_users = ref.child("users");
 
   useEffect(() => {
-    getallprofil();
+    getAllUsers();
     return () => {
-      ref_list.off(); // Clean up listener
+      ref_users.off();
     };
   }, []);
 
-  function getallprofil() {
-    ref_list.on("value", (snapshot) => { 
-      let profileData = [];
+  function getAllUsers() {
+    ref_users.on("value", (snapshot) => { 
+      let usersData = [];
       snapshot.forEach((child) => {
-        const profile = child.val();
-        if (profile) {
-          profileData.push({
-            id: profile.id,
-            nom: profile.nom,
-            prenom: profile.prenom,
-            phone: profile.phone, // Changed from numero to phone
-            image: profile.image, // Changed from url_img to image
+        const user = child.val();
+        if (user && user.uid !== auth.currentUser?.uid) {
+          usersData.push({
+            id: user.uid,
+            nom: user.nom,
+            prenom: user.prenom,
+            pseudo: user.pseudo,
+            phone: user.phone
           });
         }
       });
-      setData(profileData);
+      setData(usersData);
     });
   }
   console.log(data);
@@ -54,19 +54,32 @@ export default function List(props) {
               style={{ width: "100%", flex: 1, marginBottom: 100 }}
               keyExtractor={(item, index) => index.toString()}
               renderItem={({ item }) => (
-                <View style={{
-                  backgroundColor: 'rgba(255,255,255,0.9)',
-                  margin: 10,
-                  padding: 15,
-                  borderRadius: 10,
-                }}>
-                  <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
-                    {item.nom} {item.prenom}
-                  </Text>
-                  <Text style={{ fontSize: 16, color: '#666' }}>
-                    {item.phone}
-                  </Text>
-                </View>
+                <TouchableHighlight
+                  onPress={() => {
+                    props.navigation.navigate('Chat', {
+                      currentid: auth.currentUser.uid,
+                      secondid: item.id
+                    });
+                  }}
+                  underlayColor="#DDDDDD"
+                >
+                  <View style={{
+                    backgroundColor: 'rgba(255,255,255,0.9)',
+                    margin: 10,
+                    padding: 15,
+                    borderRadius: 10,
+                  }}>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
+                      {item.nom} {item.prenom}
+                    </Text>
+                    <Text style={{ fontSize: 16, color: '#2196F3', fontWeight: '500' }}>
+                      @{item.pseudo}
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#666' }}>
+                      {item.phone}
+                    </Text>
+                  </View>
+                </TouchableHighlight>
               )}
             />
             <View style = {styles.layout}>
@@ -126,7 +139,7 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     title: {
-        fontSize: 20,
+        fontSize: 15,
         fontWeight: 'bold',
         color: 'white',
     },
