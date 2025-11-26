@@ -10,10 +10,13 @@ import { ImageBackground } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button, TextInput } from 'react-native-paper';
 import { useState , useRef} from 'react';
+import initapp from '../Config';
+import 'firebase/compat/auth';
 
 const { height } = Dimensions.get('window');
 
-export default function Authentification() {
+export default function Authentification(props) {
+  const auth = initapp.auth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const refinput2 = useRef();
@@ -82,26 +85,52 @@ export default function Authentification() {
               
               <Button
                 mode="contained"
+                style={{ marginTop: 20, width: '50%' }}
                 onPress={() => {
-                  if (email.length < 5 && password.length < 5) {
+                  if (email.length < 5 || password.length < 5) {
                     alert('Email and password must be at least 5 characters long');
                     return;
                   }
-                  console.log('Pressed');
-                  alert('You are now signed in!' + email + password);
+                  
+                  auth.signInWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                      const user = userCredential.user;
+                      alert('Successfully signed in!');
+                      props.navigation.navigate('Accueil');
+                    })
+                    .catch((error) => {
+                      alert(error.message);
+                    });
                 }}
               >
                 sign in
               </Button>
               
-              <TouchableOpacity onPress={() => console.log('Create account pressed')}>
+              <TouchableOpacity 
+                
+                onPress={() => {
+                  if (email.length < 5 || password.length < 5) {
+                    alert('Email and password must be at least 5 characters long');
+                    return;
+                  }
+                  
+                  auth.createUserWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                      const user = userCredential.user;
+                      alert('Account created successfully!');
+                      props.navigation.navigate('Accueil');
+                    })
+                    .catch((error) => {
+                      alert(error.message);
+                    });
+                }}>
                 <Text
                   style={{
                     color: "white",
                     textDecorationLine: "underline",
                     marginTop: 20, // Cleaned up margins
                   }}
-                  onPress={() => alert('Create account pressed')}
+
                 >
                   Create an account
                 </Text>

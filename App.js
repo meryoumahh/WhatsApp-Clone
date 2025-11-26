@@ -1,11 +1,19 @@
-import { Provider as PaperProvider } from 'react-native-paper';
 import Authentification from "./Screens/Authentification";
+import Accueil from "./Screens/Accueil";
+import Add from "./Screens/Add";
+import { NavigationContainer } from '@react-navigation/native'; 
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+const Stack = createNativeStackNavigator();
 export default function App() {
   return (
     // The Provider is required for react-native-paper components to show up
-    <PaperProvider>
-       <Authentification/>   
-    </PaperProvider>
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="Authentification" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Authentification" component={Authentification} />
+        <Stack.Screen name="Accueil" component={Accueil} options={{headerShown : true}}/>
+        <Stack.Screen name="Add" component={Add} options={{headerShown : true}}/>
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
