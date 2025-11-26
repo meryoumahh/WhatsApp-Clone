@@ -252,7 +252,7 @@ MaatallahMeryemWhatsApp/
 
 **Maatallah Meryem**
 - GitHub: [@MaatallahMeryem](https://github.com/MaatallahMeryem)
-- Email: meryem.maatallah@example.com
+
 
 ## License
 
