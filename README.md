@@ -449,12 +449,7 @@ const uploadImageToSupabase = async (localURL) => {
 
 This project is for educational purposes. Feel free to use and modify for learning.
 
-## Acknowledgments
 
-- Firebase for backend services
-- Expo team for development tools
-- React Native Paper for UI components
-- React Navigation for routing solution
 
 ---
 
