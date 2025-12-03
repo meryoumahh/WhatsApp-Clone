@@ -1,8 +1,8 @@
-import { View, Text, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ImageBackground, Modal, ScrollView } from 'react-native'
+import { View, Text, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ImageBackground, Modal, ScrollView, Alert } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
-import initapp from '../Config';
+import initapp, { supabase } from '../Config';
 
 const database = initapp.database();
 const ref_all_chat = database.ref('ALL_CHAT');
@@ -35,6 +35,7 @@ export default function Chat(props) {
     const [chatBackground, setChatBackground] = useState('#E5DDD5');
     const [backgroundType, setBackgroundType] = useState('color');
     const [showBackgroundModal, setShowBackgroundModal] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
 
     const backgroundOptions = [
         { id: 'default', color: '#E5DDD5', name: 'Default' },
@@ -161,6 +162,37 @@ export default function Chat(props) {
     }
   }
 
+  const uploadImageToSupabase = async (localUri) => {
+    try {
+      const response = await fetch(localUri);
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      
+      const fileName = `${chatid}_${Date.now()}.jpg`;
+      
+      const { error } = await supabase.storage
+        .from('imageProfile')
+        .upload(fileName, arrayBuffer, {
+          contentType: 'image/jpeg',
+          upsert: true
+        });
+      
+      if (error) {
+        console.error('Upload error:', error);
+        return null;
+      }
+      
+      const { data } = supabase.storage
+        .from('imageProfile')
+        .getPublicUrl(fileName);
+      
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return null;
+    }
+  }
+
   const changeBackground = (background, type = 'color') => {
     ref_settings.set({
       background: background,
@@ -172,15 +204,30 @@ export default function Chat(props) {
   }
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [9, 16],
-      quality: 0.5,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [9, 16],
+        quality: 0.5,
+      });
 
-    if (!result.canceled) {
-      changeBackground(result.assets[0].uri, 'image');
+      if (!result.canceled) {
+        setUploadingImage(true);
+        const publicUrl = await uploadImageToSupabase(result.assets[0].uri);
+        
+        if (publicUrl) {
+          changeBackground(publicUrl, 'image');
+        } else {
+          Alert.alert('Error', 'Failed to upload image. Please try again.');
+        }
+        
+        setUploadingImage(false);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      setUploadingImage(false);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
     }
   }
 
@@ -448,17 +495,20 @@ export default function Chat(props) {
                 ))}
                 <TouchableOpacity
                   onPress={pickImage}
+                  disabled={uploadingImage}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
                     padding: 15,
                     borderRadius: 10,
                     marginVertical: 5,
-                    backgroundColor: '#F0F0F0'
+                    backgroundColor: uploadingImage ? '#E0E0E0' : '#F0F0F0'
                   }}
                 >
                   <Ionicons name="image" size={24} color="#666" style={{ marginRight: 15 }} />
-                  <Text style={{ fontSize: 16 }}>Choose from Gallery</Text>
+                  <Text style={{ fontSize: 16 }}>
+                    {uploadingImage ? 'Uploading...' : 'Choose from Gallery'}
+                  </Text>
                 </TouchableOpacity>
               </ScrollView>
               <TouchableOpacity
