@@ -36,6 +36,8 @@ export default function Chat(props) {
     const [backgroundType, setBackgroundType] = useState('color');
     const [showBackgroundModal, setShowBackgroundModal] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
+    const [selectedMessage, setSelectedMessage] = useState(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
 
     const backgroundOptions = [
         { id: 'default', color: '#E5DDD5', name: 'Default' },
@@ -57,12 +59,21 @@ export default function Chat(props) {
                 snapshot.forEach((one_msg) => {
                     const msgData = one_msg.val();
                     console.log('Message data:', msgData);
-                    data.push({
-                        id: msgData.idmsg,
-                        text: msgData.message,
-                        sender: msgData.sender === currentid ? 'me' : 'other',
-                        time: msgData.time
-                    });
+                    
+                    // Filter out deleted messages
+                    const deletedFor = msgData.deletedFor || [];
+                    const deletedForEveryone = msgData.deletedForEveryone || false;
+                    
+                    // Skip if deleted for everyone or deleted for current user
+                    if (!deletedForEveryone && !deletedFor.includes(currentid)) {
+                        data.push({
+                            id: msgData.idmsg,
+                            text: msgData.message,
+                            sender: msgData.sender === currentid ? 'me' : 'other',
+                            time: msgData.time,
+                            senderId: msgData.sender
+                        });
+                    }
                 });
             }
             
@@ -164,15 +175,19 @@ export default function Chat(props) {
 
   const uploadImageToSupabase = async (localUri) => {
     try {
-      const response = await fetch(localUri);
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
-      
       const fileName = `${chatid}_${Date.now()}.jpg`;
+      
+      // Create form data for React Native
+      const formData = new FormData();
+      formData.append('file', {
+        uri: localUri,
+        type: 'image/jpeg',
+        name: fileName,
+      });
       
       const { error } = await supabase.storage
         .from('imageProfile')
-        .upload(fileName, arrayBuffer, {
+        .upload(fileName, formData, {
           contentType: 'image/jpeg',
           upsert: true
         });
@@ -231,22 +246,53 @@ export default function Chat(props) {
     }
   }
 
+  const deleteForMe = (messageId) => {
+    const ref_msg = ref_discussion.child(messageId);
+    ref_msg.once('value', (snapshot) => {
+      const msgData = snapshot.val();
+      if (msgData) {
+        const deletedFor = msgData.deletedFor || [];
+        if (!deletedFor.includes(currentid)) {
+          deletedFor.push(currentid);
+          ref_msg.update({ deletedFor });
+        }
+      }
+    });
+    setShowDeleteModal(false);
+    setSelectedMessage(null);
+  }
+
+  const deleteForEveryone = (messageId) => {
+    const ref_msg = ref_discussion.child(messageId);
+    ref_msg.update({ deletedForEveryone: true });
+    setShowDeleteModal(false);
+    setSelectedMessage(null);
+  }
+
+  const handleLongPress = (message) => {
+    setSelectedMessage(message);
+    setShowDeleteModal(true);
+  }
+
   const renderMessage = ({ item }) => (
-    <View style={{
-      alignSelf: item.sender === 'me' ? 'flex-end' : 'flex-start',
-      backgroundColor: item.sender === 'me' ? 'gray' : '#FFFFFF',
-      padding: 10,
-      marginVertical: 2,
-      marginHorizontal: 10,
-      borderRadius: 10,
-      maxWidth: '80%',
-      elevation: 1
-    }}>
+    <TouchableOpacity
+      onLongPress={() => handleLongPress(item)}
+      style={{
+        alignSelf: item.sender === 'me' ? 'flex-end' : 'flex-start',
+        backgroundColor: selectedMessage?.id === item.id ? '#E0E0E0' : (item.sender === 'me' ? 'gray' : '#FFFFFF'),
+        padding: 10,
+        marginVertical: 2,
+        marginHorizontal: 10,
+        borderRadius: 10,
+        maxWidth: '80%',
+        elevation: 1
+      }}
+    >
       <Text style={{ fontSize: 16 }}>{item.text}</Text>
       <Text style={{ fontSize: 12, color: '#666', alignSelf: 'flex-end', marginTop: 5 }}>
         {item.time}
       </Text>
-    </View>
+    </TouchableOpacity>
   )
 
   return (
@@ -376,6 +422,50 @@ export default function Chat(props) {
             </ScrollView>
             <TouchableOpacity
               onPress={() => setShowBackgroundModal(false)}
+              style={{ backgroundColor: '#666', padding: 12, borderRadius: 8, marginTop: 15 }}
+            >
+              <Text style={{ color: 'white', textAlign: 'center', fontSize: 16 }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      
+      <Modal visible={showDeleteModal} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' }}>
+          <View style={{ backgroundColor: 'white', margin: 20, borderRadius: 15, padding: 20 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }}>Delete Message</Text>
+            
+            <TouchableOpacity
+              onPress={() => deleteForMe(selectedMessage?.id)}
+              style={{
+                padding: 15,
+                borderRadius: 10,
+                marginVertical: 5,
+                backgroundColor: '#F0F0F0'
+              }}
+            >
+              <Text style={{ fontSize: 16, textAlign: 'center' }}>Delete for Me</Text>
+            </TouchableOpacity>
+            
+            {selectedMessage?.sender === 'me' && (
+              <TouchableOpacity
+                onPress={() => deleteForEveryone(selectedMessage?.id)}
+                style={{
+                  padding: 15,
+                  borderRadius: 10,
+                  marginVertical: 5,
+                  backgroundColor: '#FFE0E0'
+                }}
+              >
+                <Text style={{ fontSize: 16, textAlign: 'center', color: '#D32F2F' }}>Delete for Everyone</Text>
+              </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity
+              onPress={() => {
+                setShowDeleteModal(false);
+                setSelectedMessage(null);
+              }}
               style={{ backgroundColor: '#666', padding: 12, borderRadius: 8, marginTop: 15 }}
             >
               <Text style={{ color: 'white', textAlign: 'center', fontSize: 16 }}>Cancel</Text>
@@ -513,6 +603,50 @@ export default function Chat(props) {
               </ScrollView>
               <TouchableOpacity
                 onPress={() => setShowBackgroundModal(false)}
+                style={{ backgroundColor: '#666', padding: 12, borderRadius: 8, marginTop: 15 }}
+              >
+                <Text style={{ color: 'white', textAlign: 'center', fontSize: 16 }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+        
+        <Modal visible={showDeleteModal} transparent animationType="fade">
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' }}>
+            <View style={{ backgroundColor: 'white', margin: 20, borderRadius: 15, padding: 20 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }}>Delete Message</Text>
+              
+              <TouchableOpacity
+                onPress={() => deleteForMe(selectedMessage?.id)}
+                style={{
+                  padding: 15,
+                  borderRadius: 10,
+                  marginVertical: 5,
+                  backgroundColor: '#F0F0F0'
+                }}
+              >
+                <Text style={{ fontSize: 16, textAlign: 'center' }}>Delete for Me</Text>
+              </TouchableOpacity>
+              
+              {selectedMessage?.sender === 'me' && (
+                <TouchableOpacity
+                  onPress={() => deleteForEveryone(selectedMessage?.id)}
+                  style={{
+                    padding: 15,
+                    borderRadius: 10,
+                    marginVertical: 5,
+                    backgroundColor: '#FFE0E0'
+                  }}
+                >
+                  <Text style={{ fontSize: 16, textAlign: 'center', color: '#D32F2F' }}>Delete for Everyone</Text>
+                </TouchableOpacity>
+              )}
+              
+              <TouchableOpacity
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  setSelectedMessage(null);
+                }}
                 style={{ backgroundColor: '#666', padding: 12, borderRadius: 8, marginTop: 15 }}
               >
                 <Text style={{ color: 'white', textAlign: 'center', fontSize: 16 }}>Cancel</Text>

@@ -151,6 +151,32 @@ export default function Myprofile(props) {
       })
   }
 
+  const handleLogout = () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Logout", 
+          onPress: () => {
+            auth.signOut()
+              .then(() => {
+                props.navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Authentification' }],
+                });
+              })
+              .catch((error) => {
+                console.error('Logout error:', error);
+                Alert.alert('Error', 'Failed to logout');
+              });
+          }
+        }
+      ]
+    );
+  }
+
   return (
     <ImageBackground
       source={require('../assets/bg.jpg')}
@@ -241,14 +267,24 @@ export default function Myprofile(props) {
               </Button>
             </View>
           ) : (
-            <Button
-              mode="contained"
-              onPress={() => setIsEditing(true)}
-              style={{ backgroundColor: 'rgba(33, 150, 243, 1)' }}
-            >
-              Edit Profile
-            </Button>
-            
+            <View>
+              <Button
+                mode="contained"
+                onPress={() => setIsEditing(true)}
+                style={{ backgroundColor: 'rgba(33, 150, 243, 1)', marginBottom: 15 }}
+              >
+                Edit Profile
+              </Button>
+              
+              <Button
+                mode="contained"
+                onPress={handleLogout}
+                style={{ backgroundColor: '#FF5252' }}
+                icon="logout"
+              >
+                Logout
+              </Button>
+            </View>
           )}
         </View>
       </ScrollView>

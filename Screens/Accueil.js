@@ -9,7 +9,7 @@ const Tab = createMaterialBottomTabNavigator();
 export default function Accueil(props) {
   return (
     <Tab.Navigator>
-      <Tab.Screen name="list" component={List} />
+      <Tab.Screen name="Contact" component={List} />
       <Tab.Screen name="Add" component={Add} />
       <Tab.Screen name="Profile" component={Myprofile} />
     </Tab.Navigator>
