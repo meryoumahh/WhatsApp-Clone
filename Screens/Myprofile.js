@@ -1,10 +1,11 @@
-import { View, ScrollView, Alert, ImageBackground, Image, TouchableOpacity } from 'react-native'
+import { View, ScrollView, Alert, ImageBackground, Image, TouchableOpacity, Modal } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { TextInput, Button, Text } from 'react-native-paper'
 import * as ImagePicker from 'expo-image-picker'
 import initapp from '../Config'
 import { supabase } from '../Config'
 import 'firebase/compat/database'
+import 'firebase/compat/auth'
 export default function Myprofile(props) {
   const [nom, setNom] = useState('')
   const [prenom, setPrenom] = useState('')
@@ -12,6 +13,9 @@ export default function Myprofile(props) {
   const [phone, setPhone] = useState('')
   const [isEditing, setIsEditing] = useState(false)
   const [userId, setUserId] = useState(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const auth = initapp.auth()
   const database = initapp.database()
@@ -177,12 +181,69 @@ export default function Myprofile(props) {
     );
   }
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "⚠️ This will permanently delete your account and all data. This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Continue", onPress: () => setShowDeleteModal(true) }
+      ]
+    );
+  }
+
+  const confirmDeleteAccount = async () => {
+    if (!confirmPassword) {
+      Alert.alert('Error', 'Please enter your password');
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      
+      const user = auth.currentUser;
+      const credential = initapp.auth.EmailAuthProvider.credential(
+        user.email,
+        confirmPassword
+      );
+      
+      await user.reauthenticateWithCredential(credential);
+      
+      await supabase.storage.from('imagesProfile').remove([userId + '.jpg']);
+      await database.ref('users/' + userId).remove();
+      
+      const chatsSnapshot = await database.ref('ALL_CHAT').once('value');
+      if (chatsSnapshot.exists()) {
+        const chats = chatsSnapshot.val();
+        for (const chatId in chats) {
+          if (chatId.includes(userId)) {
+            await database.ref('ALL_CHAT/' + chatId).remove();
+          }
+        }
+      }
+      
+      await user.delete();
+      
+      props.navigation.reset({
+        index: 0,
+        routes: [{ name: 'Authentification' }]
+      });
+      
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to delete account');
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
+      setConfirmPassword('');
+    }
+  }
+
   return (
     <ImageBackground
       source={require('../assets/bg.jpg')}
       style={{ flex: 1 }}
     >
-      <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, justifyContent: 'center' }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, justifyContent: 'center',  }}>
         <View style={{
           backgroundColor: 'rgba(0,0,0,0.7)',
           padding: 30,
@@ -279,15 +340,70 @@ export default function Myprofile(props) {
               <Button
                 mode="contained"
                 onPress={handleLogout}
-                style={{ backgroundColor: '#FF5252' }}
+                style={{ backgroundColor: '#FF5252', marginBottom: 10 }}
                 icon="logout"
               >
                 Logout
+              </Button>
+              
+              <Button
+                mode="contained"
+                onPress={handleDeleteAccount}
+                style={{ backgroundColor: '#D32F2F' }}
+                icon="account-remove"
+              >
+                Delete Account
               </Button>
             </View>
           )}
         </View>
       </ScrollView>
+      
+      <Modal visible={showDeleteModal} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center' }}>
+          <View style={{ backgroundColor: 'white', margin: 20, borderRadius: 15, padding: 20 }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: '#D32F2F' }}>
+              ⚠️ Delete Account
+            </Text>
+            
+            <Text style={{ fontSize: 16, marginBottom: 20, textAlign: 'center' }}>
+              Enter your password to confirm account deletion. This action cannot be undone.
+            </Text>
+            
+            <TextInput
+              label="Confirm Password"
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              style={{ marginBottom: 20, backgroundColor: 'white' }}
+            />
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+              <Button
+                mode="outlined"
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  setConfirmPassword('');
+                }}
+                style={{ flex: 1, marginRight: 10 }}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              
+              <Button
+                mode="contained"
+                onPress={confirmDeleteAccount}
+                style={{ backgroundColor: '#D32F2F', flex: 1 }}
+                loading={deleting}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting...' : 'Delete Forever'}
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ImageBackground>
   )
 }

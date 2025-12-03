@@ -82,24 +82,7 @@ export default function List(props) {
                 </TouchableHighlight>
               )}
             />
-            <View style = {styles.layout}>
-                <TouchableHighlight
-                    style={styles.touch}
-                    activeOpacity={0.5}
-                    underlayColor="#DDDDDD"
-                    title="logout"
-                    >
-                    <Text 
-                    style = {styles.title}
-                    onPress={() => {
-                        auth.signOut().then(() => {
-                            props.navigation.replace("Authentification");
-                        }).catch((error) => {
-                            alert(error.message);
-                        });}}
-                    >Logout</Text>
-                    </TouchableHighlight>
-            </View>
+            
         </ImageBackground>
     </View>
   );

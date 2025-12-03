@@ -14,7 +14,7 @@ export default function Add() {
     const [phone, setPhone] = useState('');
   return (
     <View style={styles.container}>
-        <Text style={styles.textstyle}>Profil</Text>
+        <Text style={styles.textstyle}>Ajouter Contact</Text>
         <TouchableOpacity onPress={async () => {
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
       fontWeight: "bold",
       color: "black",
       textAlign: "center",
-      textShadowColor: "rgba(0, 0, 0, 0.75)",
+      
       textShadowOffset: { width: -1, height: 1 },
       textShadowRadius: 10,
       marginBottom: 20 // Added margin for spacing
