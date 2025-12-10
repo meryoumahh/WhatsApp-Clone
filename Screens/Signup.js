@@ -31,8 +31,12 @@ export default function Signup(props) {
           pseudo,
           phone,
           email,
-          uid: user.uid
+          uid: user.uid,
+          isOnline: true
         }).then(() => {
+          // Set up presence system
+          database.ref('users/' + user.uid + '/isOnline').onDisconnect().set(false);
+          
           alert('Account created successfully!')
           props.navigation.navigate('Accueil')
         })

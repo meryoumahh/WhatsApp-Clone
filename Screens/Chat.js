@@ -109,6 +109,27 @@ export default function Chat(props) {
             }
         });
 
+        // Mark messages as read when chat opens
+        ref_discussion.once('value', (snapshot) => {
+            let hasUnreadMessages = false;
+            snapshot.forEach((child) => {
+                const msg = child.val();
+                if (msg.sender === secondid && msg.read === false) {
+                    child.ref.update({ read: true });
+                    hasUnreadMessages = true;
+                }
+            });
+            
+            // Reset unread counter if there were unread messages
+            if (hasUnreadMessages) {
+                database.ref(`users/${currentid}/unreadMessages/${secondid}`).set(0);
+            }
+        });
+
+        // Update last interaction when chat is opened
+        const timestamp = Date.now();
+        database.ref(`users/${currentid}/lastInteraction/${secondid}`).set(timestamp);
+
         return () => {
             console.log('Cleaning up Firebase listener');
             ref_discussion.off('value', listener);
@@ -131,6 +152,7 @@ export default function Chat(props) {
             receiver: secondid,
             time: new Date().toLocaleTimeString(),
             message: input,
+            read: false
         };
         
         console.log('Message data to save:', messageData);
@@ -138,6 +160,14 @@ export default function Chat(props) {
         ref_msg.set(messageData)
             .then(() => {
                 console.log('Message saved successfully');
+                // Increment unread counter for receiver
+                database.ref(`users/${secondid}/unreadMessages/${currentid}`)
+                    .transaction(count => (count || 0) + 1);
+                
+                // Update last interaction timestamps
+                const timestamp = Date.now();
+                database.ref(`users/${currentid}/lastInteraction/${secondid}`).set(timestamp);
+                database.ref(`users/${secondid}/lastInteraction/${currentid}`).set(timestamp);
             })
             .catch((error) => {
                 console.error('Error saving message:', error);

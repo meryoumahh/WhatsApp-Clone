@@ -7,6 +7,8 @@ import initapp from '../Config';
 export default function List(props) {
     const auth = initapp.auth();
   const [data, setData] = useState([]);
+  const [unreadCounts, setUnreadCounts] = useState({});
+  const [interactions, setInteractions] = useState({});
   const database = initapp.database();
 
   const ref = database.ref();
@@ -14,10 +16,53 @@ export default function List(props) {
 
   useEffect(() => {
     getAllUsers();
+    
+    // Listen for unread message counts and interactions
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      const unreadRef = database.ref(`users/${currentUser.uid}/unreadMessages`);
+      const interactionRef = database.ref(`users/${currentUser.uid}/lastInteraction`);
+      
+      unreadRef.on('value', (snapshot) => {
+        setUnreadCounts(snapshot.val() || {});
+      });
+      
+      interactionRef.on('value', (snapshot) => {
+        setInteractions(snapshot.val() || {});
+      });
+      
+      return () => {
+        ref_users.off();
+        unreadRef.off();
+        interactionRef.off();
+      };
+    }
+    
     return () => {
       ref_users.off();
     };
   }, []);
+
+  // Re-sort users when interactions change
+  useEffect(() => {
+    if (data.length > 0) {
+      const sortedUsers = [...data].sort((a, b) => {
+        const aTime = interactions[a.id] || 0;
+        const bTime = interactions[b.id] || 0;
+        
+        // Primary: Recent interaction (newest first)
+        if (aTime !== bTime) return bTime - aTime;
+        
+        // Secondary: Online status (online first)
+        if (a.isOnline !== b.isOnline) return b.isOnline - a.isOnline;
+        
+        // Tertiary: Alphabetical by name
+        return a.nom.localeCompare(b.nom);
+      });
+      
+      setData(sortedUsers);
+    }
+  }, [interactions]);
 
   function getAllUsers() {
     ref_users.on("value", (snapshot) => { 
@@ -30,11 +75,27 @@ export default function List(props) {
             nom: user.nom,
             prenom: user.prenom,
             pseudo: user.pseudo,
-            phone: user.phone
+            phone: user.phone,
+            isOnline: user.isOnline || false
           });
         }
       });
-      setData(usersData);
+      // Sort users by recent interaction
+      const sortedUsers = usersData.sort((a, b) => {
+        const aTime = interactions[a.id] || 0;
+        const bTime = interactions[b.id] || 0;
+        
+        // Primary: Recent interaction (newest first)
+        if (aTime !== bTime) return bTime - aTime;
+        
+        // Secondary: Online status (online first)
+        if (a.isOnline !== b.isOnline) return b.isOnline - a.isOnline;
+        
+        // Tertiary: Alphabetical by name
+        return a.nom.localeCompare(b.nom);
+      });
+      
+      setData(sortedUsers);
     });
   }
   console.log(data);
@@ -68,21 +129,77 @@ export default function List(props) {
                     margin: 10,
                     padding: 15,
                     borderRadius: 10,
+                    flexDirection: 'row',
+                    alignItems: 'center'
                   }}>
-                    <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
-                      {item.nom} {item.prenom}
-                    </Text>
-                    <Text style={{ fontSize: 16, color: '#2196F3', fontWeight: '500' }}>
-                      @{item.pseudo}
-                    </Text>
-                    <Text style={{ fontSize: 14, color: '#666' }}>
-                      {item.phone}
-                    </Text>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
+                          {item.nom} {item.prenom}
+                        </Text>
+                        {item.isOnline && (
+                          <View style={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: 5,
+                            backgroundColor: '#4CAF50',
+                            marginLeft: 8
+                          }} />
+                        )}
+                      </View>
+                      <Text style={{ fontSize: 16, color: '#2196F3', fontWeight: '500' }}>
+                        @{item.pseudo}
+                      </Text>
+                      <Text style={{ fontSize: 14, color: '#666' }}>
+                        {item.phone}
+                      </Text>
+                    </View>
+                    {unreadCounts[item.id] > 0 && (
+                      <View style={{
+                        backgroundColor: '#F44336',
+                        borderRadius: 10,
+                        minWidth: 20,
+                        height: 20,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        paddingHorizontal: 6
+                      }}>
+                        <Text style={{
+                          color: 'white',
+                          fontSize: 12,
+                          fontWeight: 'bold'
+                        }}>
+                          {unreadCounts[item.id]}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </TouchableHighlight>
               )}
             />
-            
+            <View style = {styles.layout}>
+                <TouchableHighlight
+                    style={styles.touch}
+                    activeOpacity={0.5}
+                    underlayColor="#DDDDDD"
+                    title="logout"
+                    >
+                    <Text 
+                    style = {styles.title}
+                    onPress={() => {
+                        const user = auth.currentUser;
+                        if (user) {
+                            // Set user offline before logout
+                            database.ref('users/' + user.uid + '/isOnline').set(false);
+                        }
+                        auth.signOut().then(() => {
+                            props.navigation.replace("Authentification");
+                        }).catch((error) => {
+                            alert(error.message);
+                        });}}
+                    >Logout</Text>
+                    </TouchableHighlight>
+            </View>
         </ImageBackground>
     </View>
   );

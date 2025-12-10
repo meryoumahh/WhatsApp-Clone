@@ -5,11 +5,33 @@ import Add from "./Screens/Add";
 import Chat from "./Screens/Chat";
 import { NavigationContainer } from '@react-navigation/native'; 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { AppState } from 'react-native';
+import { useEffect } from 'react';
+import initapp from './Config';
 
 const Stack = createNativeStackNavigator();
+
 export default function App() {
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState) => {
+      const user = initapp.auth().currentUser;
+      if (user) {
+        const database = initapp.database();
+        if (nextAppState === 'active') {
+          // User is online
+          database.ref('users/' + user.uid + '/isOnline').set(true);
+        } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+          // User is offline
+          database.ref('users/' + user.uid + '/isOnline').set(false);
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, []);
+
   return (
-    // The Provider is required for react-native-paper components to show up
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Authentification" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Authentification" component={Authentification} />

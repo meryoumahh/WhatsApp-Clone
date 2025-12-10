@@ -95,6 +95,11 @@ export default function Authentification(props) {
                   auth.signInWithEmailAndPassword(email, password)
                     .then((userCredential) => {
                       const user = userCredential.user;
+                      // Set user online
+                      const database = initapp.database();
+                      database.ref('users/' + user.uid + '/isOnline').set(true);
+                      database.ref('users/' + user.uid + '/isOnline').onDisconnect().set(false);
+                      
                       alert('Successfully signed in!');
                       props.navigation.navigate('Accueil');
                     })
