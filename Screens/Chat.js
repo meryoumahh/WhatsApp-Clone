@@ -1,4 +1,4 @@
-import { View, Text, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ImageBackground, Modal, ScrollView, Alert } from 'react-native'
+import { View, Text, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ImageBackground, Modal, ScrollView, Alert, StyleSheet } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
@@ -740,3 +740,76 @@ export default function Chat(props) {
     )
   )
 }
+
+const styles = StyleSheet.create({
+  chatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#F0F0F0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0'
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1
+  },
+  headerProfilePicture: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#25D366',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12
+  },
+  headerInitials: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
+  headerInfo: {
+    flex: 1
+  },
+  headerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000'
+  },
+  headerStatus: {
+    fontSize: 13,
+    color: '#667781',
+    marginTop: 2
+  },
+  headerButton: {
+    padding: 8
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    padding: 12,
+    paddingBottom: 30,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'flex-end',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0'
+  },
+  messageInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#DDD',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginRight: 8,
+    maxHeight: 100,
+    fontSize: 16
+  },
+  sendButton: {
+    borderRadius: 25,
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center'
+  }
+})

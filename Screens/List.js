@@ -1,7 +1,8 @@
-import { View, Text, FlatList, TouchableHighlight } from 'react-native'
+import { View, Text, FlatList, TouchableHighlight, Image } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { StatusBar } from 'expo-status-bar'
 import { ImageBackground, StyleSheet } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import initapp from '../Config';
 
 export default function List(props) {
@@ -163,10 +164,10 @@ export default function List(props) {
         
         <ImageBackground
             source={require("../assets/bg.jpg")}
-            resizeMode="cover"
             style={styles.image}
+            resizeMode="repeat"
         >
-            <Text style={styles.accueil}>Accueil</Text>
+            <Text style={styles.accueil}>WhatsApp</Text>
             <StatusBar style="dark" />
             <FlatList
               data={data}
@@ -188,84 +189,73 @@ export default function List(props) {
                       });
                     }
                   }}
-                  underlayColor="#DDDDDD"
+                  underlayColor="#E8F5E8"
                 >
-                  <View style={{
-                    backgroundColor: 'rgba(255,255,255,0.9)',
-                    margin: 10,
-                    padding: 15,
-                    borderRadius: 10,
-                    flexDirection: 'row',
-                    alignItems: 'center'
-                  }}>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
+                  <View style={[
+                    styles.contactCard,
+                    { backgroundColor: item.isRegistered ? '#FFFFFF' : '#F8F8F8' }
+                  ]}>
+                    {/* Profile Picture */}
+                    <View style={styles.profilePictureContainer}>
+                      <View style={styles.profilePicture}>
+                        <Text style={styles.profileInitials}>
+                          {(item.nom.charAt(0) + item.prenom.charAt(0)).toUpperCase()}
+                        </Text>
+                      </View>
+                      {item.isOnline && (
+                        <View style={styles.onlineIndicator} />
+                      )}
+                    </View>
+                    
+                    {/* Contact Info */}
+                    <View style={styles.contactInfo}>
+                      <View style={styles.nameRow}>
+                        <Text style={styles.contactName}>
                           {item.nom} {item.prenom}
                         </Text>
-                        {item.isOnline && (
-                          <View style={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: 5,
-                            backgroundColor: '#4CAF50',
-                            marginLeft: 8
-                          }} />
+                        {item.isRegistered && (
+                          <Ionicons name="checkmark-circle" size={16} color="#25D366" style={{ marginLeft: 6 }} />
                         )}
                       </View>
-                      <Text style={{ fontSize: 16, color: item.isRegistered ? '#2196F3' : '#FF9800', fontWeight: '500' }}>
-                        {item.isRegistered ? `@${item.pseudo}` : 'Invite this user to use our app'}
-                      </Text>
-                      <Text style={{ fontSize: 14, color: '#666' }}>
+                      
+                      <View style={styles.statusRow}>
+                        {!item.isRegistered && (
+                          <Ionicons name="person-add" size={14} color="#FF9800" style={{ marginRight: 4 }} />
+                        )}
+                        <Text style={[
+                          styles.statusText,
+                          { color: item.isRegistered ? '#667781' : '#FF9800' }
+                        ]}>
+                          {item.isRegistered ? `@${item.pseudo}` : 'Tap to invite'}
+                        </Text>
+                      </View>
+                      
+                      <Text style={styles.phoneText}>
                         {item.phone}
                       </Text>
                     </View>
-                    {unreadCounts[item.id] > 0 && (
-                      <View style={{
-                        backgroundColor: '#F44336',
-                        borderRadius: 10,
-                        minWidth: 20,
-                        height: 20,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        paddingHorizontal: 6
-                      }}>
-                        <Text style={{
-                          color: 'white',
-                          fontSize: 12,
-                          fontWeight: 'bold'
-                        }}>
-                          {unreadCounts[item.id]}
-                        </Text>
-                      </View>
-                    )}
+                    
+                    {/* Right Side */}
+                    <View style={styles.rightSection}>
+                      {unreadCounts[item.id] > 0 && (
+                        <View style={styles.unreadBadge}>
+                          <Text style={styles.unreadText}>
+                            {unreadCounts[item.id]}
+                          </Text>
+                        </View>
+                      )}
+                      <Ionicons 
+                        name="chevron-forward" 
+                        size={20} 
+                        color="#C4C4C4" 
+                        style={{ marginTop: 4 }}
+                      />
+                    </View>
                   </View>
                 </TouchableHighlight>
               )}
             />
-            <View style = {styles.layout}>
-                <TouchableHighlight
-                    style={styles.touch}
-                    activeOpacity={0.5}
-                    underlayColor="#DDDDDD"
-                    title="logout"
-                    >
-                    <Text 
-                    style = {styles.title}
-                    onPress={() => {
-                        const user = auth.currentUser;
-                        if (user) {
-                            // Set user offline before logout
-                            database.ref('users/' + user.uid + '/isOnline').set(false);
-                        }
-                        auth.signOut().then(() => {
-                            props.navigation.replace("Authentification");
-                        }).catch((error) => {
-                            alert(error.message);
-                        });}}
-                    >Logout</Text>
-                    </TouchableHighlight>
-            </View>
+            
         </ImageBackground>
     </View>
   );
@@ -277,41 +267,141 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },  
     accueil: {  
-        fontSize: 30,
+        fontSize: 28,
         fontWeight: "bold",
-        color: "white",
+        color: "#25D366",
         textAlign: "center",
-        textShadowColor: "rgba(0, 0, 0, 0.75)",
-        textShadowOffset: { width: -1, height: 1 },
-        textShadowRadius: 10,  
-        padding: 10,
-        marginBottom: 20 
-
+        textShadowColor: "rgba(0, 0, 0, 0.3)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,  
+        padding: 15,
+        marginBottom: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        borderRadius: 25,
+        marginHorizontal: 20,
+        overflow: 'hidden'
     },
     image: {    
         flex: 1,
-        justifyContent: "center",
+        justifyContent: "flex-start",
         alignItems: "center",
         width: '100%',
         height: '100%',
-    },  
-    touch: {
-        width: '100%',
-        height: 50,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'red',
-        borderRadius: 10,
-        marginTop: 20,
+        paddingTop: 50
     },
-    title: {
-        fontSize: 15,
-        fontWeight: 'bold',
+    contactCard: {
+        backgroundColor: '#FFFFFF',
+        marginHorizontal: 12,
+        marginVertical: 4,
+        padding: 16,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 2
+    },
+    profilePictureContainer: {
+        position: 'relative',
+        marginRight: 12
+    },
+    profilePicture: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#25D366',
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    profileInitials: {
         color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold'
+    },
+    onlineIndicator: {
+        position: 'absolute',
+        bottom: 2,
+        right: 2,
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        backgroundColor: '#4CAF50',
+        borderWidth: 2,
+        borderColor: 'white'
+    },
+    contactInfo: {
+        flex: 1
+    },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 2
+    },
+    contactName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#000000'
+    },
+    statusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 2
+    },
+    statusText: {
+        fontSize: 14,
+        fontWeight: '500'
+    },
+    phoneText: {
+        fontSize: 13,
+        color: '#667781'
+    },
+    rightSection: {
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    unreadBadge: {
+        backgroundColor: '#25D366',
+        borderRadius: 12,
+        minWidth: 24,
+        height: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        marginBottom: 4
+    },
+    unreadText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: 'bold'
     },
     layout: {
         position: 'absolute',
-        bottom: 50,
-        width: '80%',
-    },  
+        bottom: 30,
+        width: '90%',
+    },
+    logoutButton: {
+        width: '100%',
+        height: 50,
+        backgroundColor: '#25D366',
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 4
+    },
+    logoutContent: {
+        flexDirection: 'row',
+        alignItems: 'center'
+    },
+    logoutText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: 'white',
+        marginLeft: 8
+    }
 });

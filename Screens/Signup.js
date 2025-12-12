@@ -1,4 +1,4 @@
-import { View, ScrollView, KeyboardAvoidingView, Platform, ImageBackground } from 'react-native'
+import { View, ScrollView, KeyboardAvoidingView, Platform, ImageBackground, StyleSheet } from 'react-native'
 import React, { useState } from 'react'
 import { TextInput, Button, Text } from 'react-native-paper'
 import initapp from '../Config'
@@ -81,33 +81,24 @@ export default function Signup(props) {
   return (
     <ImageBackground
       source={require('../assets/bg.jpg')}
-      style={{ flex: 1 }}
+      style={{ flex: 1, width: '100%', height: '100%' }}
+      resizeMode="repeat"
     >
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, justifyContent: 'center' }}>
-          <View style={{
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: 30,
-            borderRadius: 15,
-            marginHorizontal: 10
-          }}>
-            <Text style={{
-              fontSize: 28,
-              fontWeight: 'bold',
-              color: 'white',
-              textAlign: 'center',
-              marginBottom: 30
-            }}>Sign Up</Text>
+          <View style={styles.formContainer}>
+            <Text style={styles.title}>Create Account</Text>
 
             <TextInput
               label="Email"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
-              style={{ marginBottom: 15, backgroundColor: 'white' }}
+              style={styles.input}
+              theme={{ colors: { primary: '#25D366' } }}
             />
 
             <TextInput
@@ -115,28 +106,32 @@ export default function Signup(props) {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
-              style={{ marginBottom: 15, backgroundColor: 'white' }}
+              style={styles.input}
+              theme={{ colors: { primary: '#25D366' } }}
             />
 
             <TextInput
               label="First Name"
               value={prenom}
               onChangeText={setPrenom}
-              style={{ marginBottom: 15, backgroundColor: 'white' }}
+              style={styles.input}
+              theme={{ colors: { primary: '#25D366' } }}
             />
 
             <TextInput
               label="Last Name"
               value={nom}
               onChangeText={setNom}
-              style={{ marginBottom: 15, backgroundColor: 'white' }}
+              style={styles.input}
+              theme={{ colors: { primary: '#25D366' } }}
             />
 
             <TextInput
-              label="Pseudo Name"
+              label="Username"
               value={pseudo}
               onChangeText={setPseudo}
-              style={{ marginBottom: 15, backgroundColor: 'white' }}
+              style={styles.input}
+              theme={{ colors: { primary: '#25D366' } }}
             />
 
             <TextInput
@@ -144,21 +139,24 @@ export default function Signup(props) {
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
-              style={{ marginBottom: 25, backgroundColor: 'white' }}
+              style={styles.lastInput}
+              theme={{ colors: { primary: '#25D366' } }}
             />
 
             <Button
               mode="contained"
               onPress={handleSignup}
-              style={{ backgroundColor: '#4CAF50', marginBottom: 15 }}
+              style={styles.signupButton}
+              labelStyle={styles.buttonLabel}
             >
-              Sign Up
+              Create Account
             </Button>
 
             <Button
               mode="text"
               onPress={() => props.navigation.navigate('Authentification')}
-              textColor="white"
+              textColor="#25D366"
+              labelStyle={styles.linkLabel}
             >
               Already have an account? Sign In
             </Button>
@@ -168,3 +166,46 @@ export default function Signup(props) {
     </ImageBackground>
   )
 }
+
+const styles = StyleSheet.create({
+  formContainer: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    padding: 30,
+    borderRadius: 20,
+    marginHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#25D366',
+    textAlign: 'center',
+    marginBottom: 30
+  },
+  input: {
+    marginBottom: 15,
+    backgroundColor: 'white'
+  },
+  lastInput: {
+    marginBottom: 25,
+    backgroundColor: 'white'
+  },
+  signupButton: {
+    backgroundColor: '#25D366',
+    marginBottom: 15,
+    paddingVertical: 8,
+    borderRadius: 25
+  },
+  buttonLabel: {
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  linkLabel: {
+    fontSize: 14,
+    fontWeight: '500'
+  }
+})

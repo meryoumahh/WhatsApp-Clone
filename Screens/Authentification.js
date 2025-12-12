@@ -28,6 +28,7 @@ export default function Authentification(props) {
       <ImageBackground
         source={require('../assets/bg.jpg')}
         style={styles.container}
+        resizeMode="repeat"
       >
         <KeyboardAvoidingView 
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -38,54 +39,34 @@ export default function Authentification(props) {
             contentContainerStyle={styles.scrollContainer}
             showsVerticalScrollIndicator={false}
           >
-            <View
-              style={{
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '90%',
-                // 3. REMOVED height: '50%' 
-                // 4. ADDED paddingVertical to let the box grow with content
-                paddingVertical: 30, 
-                borderRadius: 10,
-              }}
-            >
-              <Text style={{
-                fontSize: 30,
-                fontWeight: "bold",
-                color: "white",
-                textAlign: "center",
-                textShadowColor: "rgba(0, 0, 0, 0.75)",
-                textShadowOffset: { width: -1, height: 1 },
-                textShadowRadius: 10,
-                marginBottom: 20 // Added margin for spacing
-              }}>Authentification
-              </Text>
+            <View style={styles.formContainer}>
+              <Text style={styles.title}>Welcome to WhatsApp</Text>
               
               <TextInput
                 keyboardType="email-address"
-                placeholder="Email"
+                label="Email"
                 style={styles.input}
                 value={email}
                 onChangeText={setEmail}
                 onSubmitEditing={()=>{refinput2.current.focus();}}
-              >
-              </TextInput>
+                theme={{ colors: { primary: '#25D366' } }}
+              />
 
               <TextInput
                 ref={refinput2}
                 keyboardType="default"
-                placeholder="password"
+                label="Password"
                 secureTextEntry={true}
                 style={styles.input}
                 value={password}
                 onChangeText={setPassword}
-              >
-              </TextInput>
+                theme={{ colors: { primary: '#25D366' } }}
+              />
               
               <Button
                 mode="contained"
-                style={{ marginTop: 20, width: '50%' }}
+                style={styles.signInButton}
+                labelStyle={styles.buttonLabel}
                 onPress={() => {
                   if (email.length < 5 || password.length < 5) {
                     alert('Email and password must be at least 5 characters long');
@@ -108,20 +89,15 @@ export default function Authentification(props) {
                     });
                 }}
               >
-                sign in
+                Sign In
               </Button>
               
               <TouchableOpacity 
                 onPress={() => props.navigation.navigate('Signup')}
-                >
-                <Text
-                  style={{
-                    color: "white",
-                    textDecorationLine: "underline",
-                    marginTop: 20,
-                  }}
-                >
-                  Create an account
+                style={styles.linkButton}
+              >
+                <Text style={styles.linkText}>
+                  Don't have an account? Create one
                 </Text>
               </TouchableOpacity>
             </View>
@@ -136,23 +112,64 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+    width: '100%',
+    height: '100%',
   },
   keyboardView: {
     flex: 1,
     width: '100%',
   },
-  // 5. This style ensures the form stays centered but scrolls if needed
   scrollContainer: {
     flexGrow: 1, 
     alignItems: 'center', 
-    justifyContent: 'center' 
+    justifyContent: 'center',
+    paddingHorizontal: 20
+  },
+  formContainer: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingVertical: 40,
+    paddingHorizontal: 30,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#25D366',
+    textAlign: 'center',
+    marginBottom: 30
   },
   input: {
-    height: 40,
-    width: '80%',
-    borderRadius: 5,
-    textAlign: 'center',
-    marginVertical: 10, // Changed margin to marginVertical for better spacing
+    width: '100%',
+    marginVertical: 10,
     backgroundColor: 'white',
+  },
+  signInButton: {
+    marginTop: 25,
+    width: '70%',
+    backgroundColor: '#25D366',
+    paddingVertical: 8,
+    borderRadius: 25
+  },
+  buttonLabel: {
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  linkButton: {
+    marginTop: 20,
+    paddingVertical: 10
+  },
+  linkText: {
+    color: '#25D366',
+    fontSize: 14,
+    fontWeight: '500',
+    textDecorationLine: 'underline'
   }
 });

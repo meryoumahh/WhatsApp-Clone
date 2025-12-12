@@ -16,6 +16,8 @@ export default function Myprofile(props) {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [confirmPassword, setConfirmPassword] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [showResultModal, setShowResultModal] = useState(false)
+  const [deleteResult, setDeleteResult] = useState({ success: false, message: '' })
 
   const auth = initapp.auth()
   const database = initapp.database()
@@ -156,62 +158,74 @@ export default function Myprofile(props) {
   }
 
   const handleLogout = () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Logout", 
-          onPress: () => {
-            auth.signOut()
-              .then(() => {
-                props.navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Authentification' }],
-                });
-              })
-              .catch((error) => {
-                console.error('Logout error:', error);
-                Alert.alert('Error', 'Failed to logout');
-              });
-          }
+    console.log('🔴 LOGOUT BUTTON PRESSED');
+    console.log('🔴 Navigation props:', props.navigation ? 'EXISTS' : 'MISSING');
+    console.log('🔴 Auth current user:', auth.currentUser ? 'EXISTS' : 'MISSING');
+    
+    // Temporarily bypass Alert for testing
+    console.log('🔴 LOGOUT CONFIRMED - DIRECT CALL');
+    auth.signOut()
+      .then(() => {
+        console.log('🔴 SIGNOUT SUCCESS');
+        console.log('🔴 About to call navigation.reset');
+        try {
+          props.navigation.reset({
+            index: 0,
+            routes: [{ name: 'Authentification' }],
+          });
+          console.log('🔴 Navigation.reset called successfully');
+        } catch (navError) {
+          console.error('🔴 Navigation error:', navError);
         }
-      ]
-    );
+      })
+      .catch((error) => {
+        console.error('🔴 Logout error:', error);
+        Alert.alert('Error', 'Failed to logout');
+      });
   }
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      "Delete Account",
-      "⚠️ This will permanently delete your account and all data. This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Continue", onPress: () => setShowDeleteModal(true) }
-      ]
-    );
+    console.log('🔴 DELETE ACCOUNT BUTTON PRESSED');
+    console.log('🔴 Bypassing Alert - showing modal directly');
+    // Temporarily bypass Alert for testing
+    setShowDeleteModal(true);
   }
 
   const confirmDeleteAccount = async () => {
+    console.log('🔴 CONFIRM DELETE CALLED');
+    console.log('🔴 Password entered:', confirmPassword ? 'YES' : 'NO');
+    
     if (!confirmPassword) {
+      console.log('🔴 No password entered');
       Alert.alert('Error', 'Please enter your password');
       return;
     }
 
     try {
+      console.log('🔴 Starting delete process');
       setDeleting(true);
       
       const user = auth.currentUser;
+      console.log('🔴 Current user:', user ? 'EXISTS' : 'MISSING');
+      
       const credential = initapp.auth.EmailAuthProvider.credential(
         user.email,
         confirmPassword
       );
       
+      console.log('🔴 Reauthenticating...');
       await user.reauthenticateWithCredential(credential);
+      console.log('🔴 Reauthentication successful');
       
+      console.log('🔴 Removing profile image...');
       await supabase.storage.from('imagesProfile').remove([userId + '.jpg']);
-      await database.ref('users/' + userId).remove();
+      console.log('🔴 Profile image removed');
       
+      console.log('🔴 Removing user data...');
+      await database.ref('users/' + userId).remove();
+      console.log('🔴 User data removed');
+      
+      console.log('🔴 Removing chat data...');
       const chatsSnapshot = await database.ref('ALL_CHAT').once('value');
       if (chatsSnapshot.exists()) {
         const chats = chatsSnapshot.val();
@@ -221,16 +235,26 @@ export default function Myprofile(props) {
           }
         }
       }
+      console.log('🔴 Chat data removed');
       
+      console.log('🔴 Deleting Firebase user...');
       await user.delete();
+      console.log('🔴 Firebase user deleted');
       
+      console.log('🔴 Navigating to auth screen...');
       props.navigation.reset({
         index: 0,
         routes: [{ name: 'Authentification' }]
       });
+      console.log('🔴 Navigation completed');
+      
+      setDeleteResult({ success: true, message: 'Account deleted successfully!' });
+      setShowResultModal(true);
       
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to delete account');
+      console.error('🔴 Delete account error:', error);
+      setDeleteResult({ success: false, message: error.message || 'Failed to delete account' });
+      setShowResultModal(true);
     } finally {
       setDeleting(false);
       setShowDeleteModal(false);
@@ -241,7 +265,8 @@ export default function Myprofile(props) {
   return (
     <ImageBackground
       source={require('../assets/bg.jpg')}
-      style={{ flex: 1 }}
+      style={{ flex: 1, width: '100%', height: '100%' }}
+      resizeMode="repeat"
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, justifyContent: 'center',  }}>
         <View style={{
@@ -401,6 +426,42 @@ export default function Myprofile(props) {
                 {deleting ? 'Deleting...' : 'Delete Forever'}
               </Button>
             </View>
+          </View>
+        </View>
+      </Modal>
+      
+      <Modal visible={showResultModal} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center' }}>
+          <View style={{ backgroundColor: 'white', margin: 20, borderRadius: 15, padding: 20 }}>
+            <Text style={{ 
+              fontSize: 20, 
+              fontWeight: 'bold', 
+              marginBottom: 15, 
+              textAlign: 'center', 
+              color: deleteResult.success ? '#4CAF50' : '#D32F2F' 
+            }}>
+              {deleteResult.success ? '✅' : '❌'} {deleteResult.success ? 'Success' : 'Error'}
+            </Text>
+            
+            <Text style={{ fontSize: 16, marginBottom: 20, textAlign: 'center' }}>
+              {deleteResult.message}
+            </Text>
+            
+            <Button
+              mode="contained"
+              onPress={() => {
+                setShowResultModal(false);
+                if (deleteResult.success) {
+                  props.navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Authentification' }]
+                  });
+                }
+              }}
+              style={{ backgroundColor: deleteResult.success ? '#4CAF50' : '#D32F2F' }}
+            >
+              OK
+            </Button>
           </View>
         </View>
       </Modal>
