@@ -33,9 +33,41 @@ export default function Signup(props) {
           email,
           uid: user.uid,
           isOnline: true
-        }).then(() => {
+        }).then(async () => {
           // Set up presence system
           database.ref('users/' + user.uid + '/isOnline').onDisconnect().set(false);
+          
+          // Update existing contacts that have this phone number
+          try {
+            const usersSnapshot = await database.ref('users').once('value');
+            const updates = {};
+            
+            if (usersSnapshot.exists()) {
+              usersSnapshot.forEach((userChild) => {
+                const userData = userChild.val();
+                const userId = userChild.key;
+                
+                if (userData.contacts) {
+                  Object.keys(userData.contacts).forEach((contactId) => {
+                    const contact = userData.contacts[contactId];
+                    if (contact.phone === phone && !contact.isRegistered) {
+                      // Update this contact to registered status
+                      updates[`users/${userId}/contacts/${contactId}/isRegistered`] = true;
+                      updates[`users/${userId}/contacts/${contactId}/registeredUserId`] = user.uid;
+                    }
+                  });
+                }
+              });
+            }
+            
+            // Apply all updates at once
+            if (Object.keys(updates).length > 0) {
+              await database.ref().update(updates);
+              console.log('Updated existing contacts for new user');
+            }
+          } catch (error) {
+            console.error('Error updating existing contacts:', error);
+          }
           
           alert('Account created successfully!')
           props.navigation.navigate('Accueil')

@@ -10,6 +10,7 @@ const ref_all_chat = database.ref('ALL_CHAT');
 export default function Chat(props) {
     const currentid = props.route?.params?.currentid || initapp.auth().currentUser?.uid; 
     const secondid = props.route?.params?.secondid;
+    const isUnregistered = props.route?.params?.isUnregistered || false;
 
     if (!currentid || !secondid) {
         return (
@@ -69,11 +70,22 @@ export default function Chat(props) {
                         data.push({
                             id: msgData.idmsg,
                             text: msgData.message,
-                            sender: msgData.sender === currentid ? 'me' : 'other',
+                            sender: msgData.sender === currentid ? 'me' : (msgData.sender === 'system' ? 'system' : 'other'),
                             time: msgData.time,
-                            senderId: msgData.sender
+                            senderId: msgData.sender,
+                            isInviteMessage: msgData.isInviteMessage || false
                         });
                     }
+                });
+            } else if (isUnregistered) {
+                // If no messages exist for unregistered contact, create invite message
+                data.push({
+                    id: 'invite_msg',
+                    text: 'Invite this user to use our app',
+                    sender: 'system',
+                    time: new Date().toLocaleTimeString(),
+                    senderId: 'system',
+                    isInviteMessage: true
                 });
             }
             
@@ -82,13 +94,24 @@ export default function Chat(props) {
         });
         
         // Get other user's name
-        database.ref('users/' + secondid).once('value')
-            .then((snapshot) => {
-                const userData = snapshot.val();
-                if (userData) {
-                    setOtherUserName(userData.prenom || userData.pseudo || 'User');
-                }
-            });
+        if (isUnregistered) {
+            // For unregistered contacts, get name from current user's contacts
+            database.ref(`users/${currentid}/contacts/${secondid}`).once('value')
+                .then((snapshot) => {
+                    const contactData = snapshot.val();
+                    if (contactData) {
+                        setOtherUserName(contactData.name || 'Contact');
+                    }
+                });
+        } else {
+            database.ref('users/' + secondid).once('value')
+                .then((snapshot) => {
+                    const userData = snapshot.val();
+                    if (userData) {
+                        setOtherUserName(userData.prenom || userData.pseudo || 'User');
+                    }
+                });
+        }
 
         // Listen for typing status
         const typingListener = ref_typing.on('value', (snapshot) => {
@@ -139,6 +162,15 @@ export default function Chat(props) {
     }, [chatid, currentid]);
 
   const sendMessage = () => {
+    if (isUnregistered) {
+        Alert.alert(
+            'Cannot Send Message',
+            'This contact is not registered. Please invite them to use the app first.',
+            [{ text: 'OK' }]
+        );
+        return;
+    }
+    
     if (input.trim().length > 0) {
         console.log('Sending message:', input);
         console.log('Chat path:', `ALL_CHAT/${chatid}/discussion`);
@@ -306,20 +338,36 @@ export default function Chat(props) {
 
   const renderMessage = ({ item }) => (
     <TouchableOpacity
-      onLongPress={() => handleLongPress(item)}
+      onLongPress={() => !item.isInviteMessage && handleLongPress(item)}
       style={{
-        alignSelf: item.sender === 'me' ? 'flex-end' : 'flex-start',
-        backgroundColor: selectedMessage?.id === item.id ? '#E0E0E0' : (item.sender === 'me' ? 'gray' : '#FFFFFF'),
+        alignSelf: item.sender === 'me' ? 'flex-end' : (item.sender === 'system' ? 'center' : 'flex-start'),
+        backgroundColor: selectedMessage?.id === item.id ? '#E0E0E0' : 
+          (item.sender === 'system' ? '#FFF3E0' : 
+           (item.sender === 'me' ? 'gray' : '#FFFFFF')),
         padding: 10,
         marginVertical: 2,
         marginHorizontal: 10,
         borderRadius: 10,
-        maxWidth: '80%',
-        elevation: 1
+        maxWidth: item.sender === 'system' ? '90%' : '80%',
+        elevation: 1,
+        borderWidth: item.isInviteMessage ? 1 : 0,
+        borderColor: item.isInviteMessage ? '#FF9800' : 'transparent'
       }}
     >
-      <Text style={{ fontSize: 16 }}>{item.text}</Text>
-      <Text style={{ fontSize: 12, color: '#666', alignSelf: 'flex-end', marginTop: 5 }}>
+      <Text style={{ 
+        fontSize: 16, 
+        color: item.isInviteMessage ? '#FF9800' : '#000',
+        fontStyle: item.isInviteMessage ? 'italic' : 'normal',
+        textAlign: item.sender === 'system' ? 'center' : 'left'
+      }}>
+        {item.text}
+      </Text>
+      <Text style={{ 
+        fontSize: 12, 
+        color: '#666', 
+        alignSelf: item.sender === 'system' ? 'center' : 'flex-end', 
+        marginTop: 5 
+      }}>
         {item.time}
       </Text>
     </TouchableOpacity>
@@ -382,25 +430,29 @@ export default function Chat(props) {
             paddingHorizontal: 15,
             paddingVertical: 10,
             marginRight: 10,
-            backgroundColor: '#FFFFFF'
+            backgroundColor: isUnregistered ? '#F5F5F5' : '#FFFFFF'
           }}
-          placeholder="Type a message..."
+          placeholder={isUnregistered ? "Contact not registered" : "Type a message..."}
           value={input}
           onChangeText={(text) => {
-            setInput(text);
-            handleTyping();
+            if (!isUnregistered) {
+              setInput(text);
+              handleTyping();
+            }
           }}
+          editable={!isUnregistered}
           multiline
         />
         <TouchableOpacity
           onPress={sendMessage}
           style={{
-            backgroundColor: 'blue',
+            backgroundColor: isUnregistered ? '#CCC' : 'blue',
             borderRadius: 25,
             padding: 12
           }}
+          disabled={isUnregistered}
         >
-          <Ionicons name="send" size={20} color="white" />
+          <Ionicons name={isUnregistered ? "person-add" : "send"} size={20} color="white" />
         </TouchableOpacity>
       </View>
       </KeyboardAvoidingView>

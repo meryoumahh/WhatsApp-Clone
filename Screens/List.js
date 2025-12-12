@@ -15,9 +15,9 @@ export default function List(props) {
   const ref_users = ref.child("users");
 
   useEffect(() => {
-    getAllUsers();
+    getAllContacts();
     
-    // Listen for unread message counts and interactions
+    // Listen for unread messages
     const currentUser = auth.currentUser;
     if (currentUser) {
       const unreadRef = database.ref(`users/${currentUser.uid}/unreadMessages`);
@@ -43,20 +43,20 @@ export default function List(props) {
     };
   }, []);
 
-  // Re-sort users when interactions change
+  // Ratib users when interactions change
   useEffect(() => {
     if (data.length > 0) {
       const sortedUsers = [...data].sort((a, b) => {
         const aTime = interactions[a.id] || 0;
         const bTime = interactions[b.id] || 0;
         
-        // Primary: Recent interaction (newest first)
+        // interactiit ajdad we7ids
         if (aTime !== bTime) return bTime - aTime;
         
-        // Secondary: Online status (online first)
+        // snn en se basant 3ala activity 
         if (a.isOnline !== b.isOnline) return b.isOnline - a.isOnline;
         
-        // Tertiary: Alphabetical by name
+        // snn tartib abajidi 
         return a.nom.localeCompare(b.nom);
       });
       
@@ -64,39 +64,97 @@ export default function List(props) {
     }
   }, [interactions]);
 
-  function getAllUsers() {
-    ref_users.on("value", (snapshot) => { 
-      let usersData = [];
-      snapshot.forEach((child) => {
-        const user = child.val();
-        if (user && user.uid !== auth.currentUser?.uid) {
-          usersData.push({
-            id: user.uid,
-            nom: user.nom,
-            prenom: user.prenom,
-            pseudo: user.pseudo,
-            phone: user.phone,
-            isOnline: user.isOnline || false
-          });
-        }
-      });
-      // Sort users by recent interaction
-      const sortedUsers = usersData.sort((a, b) => {
-        const aTime = interactions[a.id] || 0;
-        const bTime = interactions[b.id] || 0;
-        
-        // Primary: Recent interaction (newest first)
-        if (aTime !== bTime) return bTime - aTime;
-        
-        // Secondary: Online status (online first)
-        if (a.isOnline !== b.isOnline) return b.isOnline - a.isOnline;
-        
-        // Tertiary: Alphabetical by name
-        return a.nom.localeCompare(b.nom);
-      });
+  function getAllContacts() {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    
+    // Listen to user's contacts
+    const contactsRef = database.ref(`users/${currentUser.uid}/contacts`);
+    contactsRef.on('value', async (contactsSnapshot) => {
+      let contactsData = [];
       
-      setData(sortedUsers);
+      if (contactsSnapshot.exists()) {
+        const contactPromises = [];
+        
+        contactsSnapshot.forEach((contactChild) => {
+          const contact = contactChild.val();
+          const contactId = contactChild.key;
+          
+          if (contact.isRegistered && contact.registeredUserId) {
+            // Get registered user data
+            const promise = database.ref(`users/${contact.registeredUserId}`).once('value')
+              .then((userSnapshot) => {
+                if (userSnapshot.exists()) {
+                  const userData = userSnapshot.val();
+                  return {
+                    id: contact.registeredUserId,
+                    nom: userData.nom,
+                    prenom: userData.prenom,
+                    pseudo: userData.pseudo,
+                    phone: userData.phone,
+                    isOnline: userData.isOnline || false,
+                    isRegistered: true,
+                    contactId: contactId
+                  };
+                }
+                return null;
+              });
+            contactPromises.push(promise);
+          } else {
+            // Unregistered contact
+            const nameParts = contact.name.split(' ');
+            contactsData.push({
+              id: contactId,
+              nom: nameParts[0] || '',
+              prenom: nameParts.slice(1).join(' ') || '',
+              pseudo: 'Not registered',
+              phone: contact.phone,
+              isOnline: false,
+              isRegistered: false,
+              contactId: contactId
+            });
+          }
+        });
+        
+        // Wait for all registered user data to be fetched
+        const registeredContacts = await Promise.all(contactPromises);
+        registeredContacts.forEach(contact => {
+          if (contact) contactsData.push(contact);
+        });
+        
+        updateContactsList(contactsData);
+      } else {
+        setData([]);
+      }
     });
+  }
+  
+  function updateContactsList(contactsData) {
+    // Remove duplicates based on id
+    const uniqueContacts = contactsData.filter((contact, index, self) => 
+      index === self.findIndex(c => c.id === contact.id)
+    );
+    
+    // Sort contacts
+    const sortedContacts = uniqueContacts.sort((a, b) => {
+      // Primary: Registered status (registered first)
+      if (a.isRegistered !== b.isRegistered) return b.isRegistered - a.isRegistered;
+      
+      // Secondary: Recent interaction
+      const aTime = interactions[a.id] || 0;
+      const bTime = interactions[b.id] || 0;
+      if (aTime !== bTime) return bTime - aTime;
+      
+      // Tertiary: Online status (for registered users)
+      if (a.isRegistered && b.isRegistered && a.isOnline !== b.isOnline) {
+        return b.isOnline - a.isOnline;
+      }
+      
+      // Quaternary: Alphabetical by name
+      return a.nom.localeCompare(b.nom);
+    });
+    
+    setData(sortedContacts);
   }
   console.log(data);
 //...
@@ -117,10 +175,18 @@ export default function List(props) {
               renderItem={({ item }) => (
                 <TouchableHighlight
                   onPress={() => {
-                    props.navigation.navigate('Chat', {
-                      currentid: auth.currentUser.uid,
-                      secondid: item.id
-                    });
+                    if (item.isRegistered) {
+                      props.navigation.navigate('Chat', {
+                        currentid: auth.currentUser.uid,
+                        secondid: item.id
+                      });
+                    } else {
+                      props.navigation.navigate('Chat', {
+                        currentid: auth.currentUser.uid,
+                        secondid: item.id,
+                        isUnregistered: true
+                      });
+                    }
                   }}
                   underlayColor="#DDDDDD"
                 >
@@ -147,8 +213,8 @@ export default function List(props) {
                           }} />
                         )}
                       </View>
-                      <Text style={{ fontSize: 16, color: '#2196F3', fontWeight: '500' }}>
-                        @{item.pseudo}
+                      <Text style={{ fontSize: 16, color: item.isRegistered ? '#2196F3' : '#FF9800', fontWeight: '500' }}>
+                        {item.isRegistered ? `@${item.pseudo}` : 'Invite this user to use our app'}
                       </Text>
                       <Text style={{ fontSize: 14, color: '#666' }}>
                         {item.phone}

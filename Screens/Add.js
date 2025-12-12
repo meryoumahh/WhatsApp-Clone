@@ -3,10 +3,12 @@ import React from 'react'
 import { StyleSheet, TextInput, TouchableOpacity, Image } from 'react-native';
 import { Button } from 'react-native-paper';
 import { useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import initapp from '../Config';
 
 export default function Add() {
     const database = initapp.database();
+    const auth = initapp.auth();
 
     const [image, setImage] = useState(null);
     const [nom, setNom] = useState('');
@@ -70,32 +72,78 @@ export default function Add() {
         <Button
                 mode="contained"
                 style={{ marginTop: 20, width: '50%' }}
-                onPress={()=>{
+                onPress={async ()=>{
                     if (!nom || !prenom || !phone) {
                         alert('Please fill all fields');
                         return;
                     }
                     
-                    const ref_base = database.ref();
-                    const ref_profils = ref_base.child('profils');
-                    const key = ref_profils.push().key;
-                    const ref_p = ref_profils.child('profil' + key);
-                    
-                    ref_p.set({
-                        nom: nom,
-                        prenom: prenom,
-                        phone: phone, 
-                        image: image || null,
-                        id : key
-                    }).then(() => {
-                        alert('Profil added successfully');
+                    const currentUser = auth.currentUser;
+                    if (!currentUser) {
+                        alert('User not authenticated');
+                        return;
+                    }
+
+                    try {
+                        // Check if phone number exists in registered users
+                        const usersSnapshot = await database.ref('users').orderByChild('phone').equalTo(phone).once('value');
+                        
+                        let isRegistered = false;
+                        let registeredUserId = null;
+                        
+                        if (usersSnapshot.exists()) {
+                            const userData = Object.values(usersSnapshot.val())[0];
+                            if (userData.uid !== currentUser.uid) {
+                                isRegistered = true;
+                                registeredUserId = userData.uid;
+                            } else {
+                                alert('Cannot add yourself as contact');
+                                return;
+                            }
+                        }
+                        
+                        // Generate contact ID
+                        const contactRef = database.ref(`users/${currentUser.uid}/contacts`).push();
+                        const contactId = contactRef.key;
+                        
+                        // Save contact
+                        const contactData = {
+                            name: `${nom} ${prenom}`,
+                            phone: phone,
+                            isRegistered: isRegistered,
+                            addedAt: Date.now()
+                        };
+                        
+                        if (isRegistered) {
+                            contactData.registeredUserId = registeredUserId;
+                        }
+                        
+                        await contactRef.set(contactData);
+                        
+                        // Create invite message for unregistered contacts
+                        if (!isRegistered) {
+                            const chatId = `${currentUser.uid}_${contactId}`;
+                            const messageRef = database.ref(`ALL_CHAT/${chatId}/discussion`).push();
+                            await messageRef.set({
+                                idmsg: messageRef.key,
+                                sender: 'system',
+                                receiver: contactId,
+                                message: 'Invite this user to use our app',
+                                time: new Date().toLocaleTimeString(),
+                                read: false,
+                                isInviteMessage: true
+                            });
+                        }
+                        
+                        alert(isRegistered ? 'Contact added successfully!' : 'Contact added! They will need to register to chat.');
                         setNom('');
                         setPrenom('');
                         setPhone('');
                         setImage(null);
-                    }).catch((error) => {
-                        alert(error.message);
-                    });
+                        
+                    } catch (error) {
+                        alert('Error adding contact: ' + error.message);
+                    }
                 }}
               >
                 Add
