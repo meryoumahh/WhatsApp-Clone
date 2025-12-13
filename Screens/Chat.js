@@ -1,7 +1,9 @@
-import { View, Text, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ImageBackground, Modal, ScrollView, Alert, StyleSheet } from 'react-native'
+import { View, Text, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ImageBackground, Modal, ScrollView, Alert, StyleSheet, Image } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
+import * as DocumentPicker from 'expo-document-picker'
+import * as FileSystem from 'expo-file-system'
 import initapp, { supabase } from '../Config';
 
 const database = initapp.database();
@@ -39,6 +41,8 @@ export default function Chat(props) {
     const [uploadingImage, setUploadingImage] = useState(false);
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+    const [uploadingFile, setUploadingFile] = useState(false);
 
     const backgroundOptions = [
         { id: 'default', color: '#E5DDD5', name: 'Default' },
@@ -70,6 +74,11 @@ export default function Chat(props) {
                         data.push({
                             id: msgData.idmsg,
                             text: msgData.message,
+                            messageType: msgData.messageType || 'text',
+                            fileUrl: msgData.fileUrl,
+                            fileName: msgData.fileName,
+                            fileSize: msgData.fileSize,
+                            mimeType: msgData.mimeType,
                             sender: msgData.sender === currentid ? 'me' : (msgData.sender === 'system' ? 'system' : 'other'),
                             time: msgData.time,
                             senderId: msgData.sender,
@@ -149,9 +158,7 @@ export default function Chat(props) {
             }
         });
 
-        // Update last interaction when chat is opened
-        const timestamp = Date.now();
-        database.ref(`users/${currentid}/lastInteraction/${secondid}`).set(timestamp);
+        // Note: lastInteraction should only be updated when messages are sent, not when chat is opened
 
         return () => {
             console.log('Cleaning up Firebase listener');
@@ -235,11 +242,46 @@ export default function Chat(props) {
     }
   }
 
+  const uploadChatFile = async (fileUri, messageId, fileType, originalName = null) => {
+    try {
+      const bucket = fileType === 'image' ? 'chatImages' : 'chatFiles';
+      const extension = fileType === 'image' ? '.jpg' : (originalName ? '.' + originalName.split('.').pop() : '.file');
+      const fileName = `${messageId}${extension}`;
+      
+      // Create FormData for React Native
+      const formData = new FormData();
+      formData.append('file', {
+        uri: fileUri,
+        type: fileType === 'image' ? 'image/jpeg' : 'application/octet-stream',
+        name: fileName,
+      });
+      
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, formData, {
+          upsert: true
+        });
+      
+      if (error) {
+        console.error('Upload error:', error);
+        return null;
+      }
+      
+      const { data: urlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(fileName);
+      
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      return null;
+    }
+  }
+
   const uploadImageToSupabase = async (localUri) => {
     try {
       const fileName = `${chatid}_${Date.now()}.jpg`;
       
-      // Create form data for React Native
       const formData = new FormData();
       formData.append('file', {
         uri: localUri,
@@ -248,9 +290,8 @@ export default function Chat(props) {
       });
       
       const { error } = await supabase.storage
-        .from('imageProfile')
+        .from('imagesProfile')
         .upload(fileName, formData, {
-          contentType: 'image/jpeg',
           upsert: true
         });
       
@@ -260,7 +301,7 @@ export default function Chat(props) {
       }
       
       const { data } = supabase.storage
-        .from('imageProfile')
+        .from('imagesProfile')
         .getPublicUrl(fileName);
       
       return data.publicUrl;
@@ -283,7 +324,7 @@ export default function Chat(props) {
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'images',
         allowsEditing: true,
         aspect: [9, 16],
         quality: 0.5,
@@ -305,6 +346,127 @@ export default function Chat(props) {
       console.error('Error picking image:', error);
       setUploadingImage(false);
       Alert.alert('Error', 'Failed to select image. Please try again.');
+    }
+  }
+
+  const sendImageMessage = async () => {
+    try {
+      // Request permissions first
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant camera roll permissions to send images');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      console.log('Image picker result:', result);
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        console.log('Selected image URI:', result.assets[0].uri);
+        setUploadingFile(true);
+        setShowAttachmentModal(false);
+        
+        const messageId = ref_discussion.push().key;
+        console.log('Uploading image with messageId:', messageId);
+        const fileUrl = await uploadChatFile(result.assets[0].uri, messageId, 'image');
+        console.log('Upload result fileUrl:', fileUrl);
+        
+        if (fileUrl) {
+          const messageData = {
+            idmsg: messageId,
+            sender: currentid,
+            receiver: secondid,
+            messageType: 'image',
+            fileUrl: fileUrl,
+            fileName: 'image.jpg',
+            fileSize: result.assets[0].fileSize || 0,
+            mimeType: 'image/jpeg',
+            time: new Date().toLocaleTimeString(),
+            read: false
+          };
+          
+          await ref_discussion.child(messageId).set(messageData);
+          
+          // Update unread counter and interactions
+          database.ref(`users/${secondid}/unreadMessages/${currentid}`)
+            .transaction(count => (count || 0) + 1);
+          
+          const timestamp = Date.now();
+          database.ref(`users/${currentid}/lastInteraction/${secondid}`).set(timestamp);
+          database.ref(`users/${secondid}/lastInteraction/${currentid}`).set(timestamp);
+        } else {
+          Alert.alert('Error', 'Failed to upload image');
+        }
+        
+        setUploadingFile(false);
+      }
+    } catch (error) {
+      console.error('Error sending image:', error);
+      setUploadingFile(false);
+      Alert.alert('Error', 'Failed to send image');
+    }
+  }
+
+  const sendDocumentMessage = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const file = result.assets[0];
+        
+        // Check file size (max 50MB)
+        if (file.size > 50 * 1024 * 1024) {
+          Alert.alert('Error', 'File size must be less than 50MB');
+          return;
+        }
+        
+        setUploadingFile(true);
+        setShowAttachmentModal(false);
+        
+        const messageId = ref_discussion.push().key;
+        const fileUrl = await uploadChatFile(file.uri, messageId, 'file', file.name);
+        
+        if (fileUrl) {
+          const messageData = {
+            idmsg: messageId,
+            sender: currentid,
+            receiver: secondid,
+            messageType: 'file',
+            fileUrl: fileUrl,
+            fileName: file.name,
+            fileSize: file.size,
+            mimeType: file.mimeType,
+            time: new Date().toLocaleTimeString(),
+            read: false
+          };
+          
+          await ref_discussion.child(messageId).set(messageData);
+          
+          // Update unread counter and interactions
+          database.ref(`users/${secondid}/unreadMessages/${currentid}`)
+            .transaction(count => (count || 0) + 1);
+          
+          const timestamp = Date.now();
+          database.ref(`users/${currentid}/lastInteraction/${secondid}`).set(timestamp);
+          database.ref(`users/${secondid}/lastInteraction/${currentid}`).set(timestamp);
+        } else {
+          Alert.alert('Error', 'Failed to upload file');
+        }
+        
+        setUploadingFile(false);
+      }
+    } catch (error) {
+      console.error('Error sending document:', error);
+      setUploadingFile(false);
+      Alert.alert('Error', 'Failed to send document');
     }
   }
 
@@ -336,42 +498,92 @@ export default function Chat(props) {
     setShowDeleteModal(true);
   }
 
-  const renderMessage = ({ item }) => (
-    <TouchableOpacity
-      onLongPress={() => !item.isInviteMessage && handleLongPress(item)}
-      style={{
-        alignSelf: item.sender === 'me' ? 'flex-end' : (item.sender === 'system' ? 'center' : 'flex-start'),
-        backgroundColor: selectedMessage?.id === item.id ? '#E0E0E0' : 
-          (item.sender === 'system' ? '#FFF3E0' : 
-           (item.sender === 'me' ? 'gray' : '#FFFFFF')),
-        padding: 10,
-        marginVertical: 2,
-        marginHorizontal: 10,
-        borderRadius: 10,
-        maxWidth: item.sender === 'system' ? '90%' : '80%',
-        elevation: 1,
-        borderWidth: item.isInviteMessage ? 1 : 0,
-        borderColor: item.isInviteMessage ? '#FF9800' : 'transparent'
-      }}
-    >
-      <Text style={{ 
-        fontSize: 16, 
-        color: item.isInviteMessage ? '#FF9800' : '#000',
-        fontStyle: item.isInviteMessage ? 'italic' : 'normal',
-        textAlign: item.sender === 'system' ? 'center' : 'left'
-      }}>
-        {item.text}
-      </Text>
-      <Text style={{ 
-        fontSize: 12, 
-        color: '#666', 
-        alignSelf: item.sender === 'system' ? 'center' : 'flex-end', 
-        marginTop: 5 
-      }}>
-        {item.time}
-      </Text>
-    </TouchableOpacity>
-  )
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  const renderMessage = ({ item }) => {
+    const renderMessageContent = () => {
+      switch (item.messageType) {
+        case 'image':
+          return (
+            <View>
+              <Image 
+                source={{ uri: item.fileUrl }} 
+                style={{ 
+                  width: 200, 
+                  height: 200, 
+                  borderRadius: 8,
+                  marginBottom: 5
+                }} 
+                resizeMode="cover"
+              />
+            </View>
+          );
+        
+        case 'file':
+          return (
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 8 }}>
+              <Ionicons name="document" size={24} color="#666" style={{ marginRight: 8 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '500', color: '#000' }} numberOfLines={1}>
+                  {item.fileName}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#666' }}>
+                  {formatFileSize(item.fileSize)}
+                </Text>
+              </View>
+            </View>
+          );
+        
+        default:
+          return (
+            <Text style={{ 
+              fontSize: 16, 
+              color: item.isInviteMessage ? '#FF9800' : '#000',
+              fontStyle: item.isInviteMessage ? 'italic' : 'normal',
+              textAlign: item.sender === 'system' ? 'center' : 'left'
+            }}>
+              {item.text}
+            </Text>
+          );
+      }
+    };
+
+    return (
+      <TouchableOpacity
+        onLongPress={() => !item.isInviteMessage && handleLongPress(item)}
+        style={{
+          alignSelf: item.sender === 'me' ? 'flex-end' : (item.sender === 'system' ? 'center' : 'flex-start'),
+          backgroundColor: selectedMessage?.id === item.id ? '#E0E0E0' : 
+            (item.sender === 'system' ? '#FFF3E0' : 
+             (item.sender === 'me' ? 'gray' : '#FFFFFF')),
+          padding: item.messageType === 'image' ? 5 : 10,
+          marginVertical: 2,
+          marginHorizontal: 10,
+          borderRadius: 10,
+          maxWidth: item.sender === 'system' ? '90%' : '80%',
+          elevation: 1,
+          borderWidth: item.isInviteMessage ? 1 : 0,
+          borderColor: item.isInviteMessage ? '#FF9800' : 'transparent'
+        }}
+      >
+        {renderMessageContent()}
+        <Text style={{ 
+          fontSize: 12, 
+          color: '#666', 
+          alignSelf: item.sender === 'system' ? 'center' : 'flex-end', 
+          marginTop: 5 
+        }}>
+          {item.time}
+        </Text>
+      </TouchableOpacity>
+    );
+  }
 
   return (
     backgroundType === 'image' ? (
@@ -421,6 +633,18 @@ export default function Chat(props) {
         backgroundColor: '#FFFFFF',
         alignItems: 'center'
       }}>
+        {!isUnregistered && (
+          <TouchableOpacity
+            onPress={() => setShowAttachmentModal(true)}
+            style={{
+              padding: 8,
+              marginRight: 8
+            }}
+            disabled={uploadingFile}
+          >
+            <Ionicons name="attach" size={24} color={uploadingFile ? '#CCC' : '#666'} />
+          </TouchableOpacity>
+        )}
         <TextInput
           style={{
             flex: 1,
@@ -603,6 +827,16 @@ export default function Chat(props) {
           backgroundColor: '#FFFFFF',
           alignItems: 'center'
         }}>
+          <TouchableOpacity
+            onPress={() => setShowAttachmentModal(true)}
+            style={{
+              padding: 8,
+              marginRight: 8
+            }}
+            disabled={uploadingFile}
+          >
+            <Ionicons name="attach" size={24} color={uploadingFile ? '#CCC' : '#666'} />
+          </TouchableOpacity>
           <TextInput
             style={{
               flex: 1,
@@ -729,6 +963,57 @@ export default function Chat(props) {
                   setShowDeleteModal(false);
                   setSelectedMessage(null);
                 }}
+                style={{ backgroundColor: '#666', padding: 12, borderRadius: 8, marginTop: 15 }}
+              >
+                <Text style={{ color: 'white', textAlign: 'center', fontSize: 16 }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+        
+        <Modal visible={showAttachmentModal} transparent animationType="slide">
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' }}>Send Attachment</Text>
+              
+              <TouchableOpacity
+                onPress={sendImageMessage}
+                disabled={uploadingFile}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: 15,
+                  borderRadius: 10,
+                  marginVertical: 5,
+                  backgroundColor: uploadingFile ? '#E0E0E0' : '#E8F5E8'
+                }}
+              >
+                <Ionicons name="image" size={24} color="#25D366" style={{ marginRight: 15 }} />
+                <Text style={{ fontSize: 16, color: uploadingFile ? '#999' : '#000' }}>
+                  {uploadingFile ? 'Uploading...' : 'Send Image'}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                onPress={sendDocumentMessage}
+                disabled={uploadingFile}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: 15,
+                  borderRadius: 10,
+                  marginVertical: 5,
+                  backgroundColor: uploadingFile ? '#E0E0E0' : '#E3F2FD'
+                }}
+              >
+                <Ionicons name="document" size={24} color="#2196F3" style={{ marginRight: 15 }} />
+                <Text style={{ fontSize: 16, color: uploadingFile ? '#999' : '#000' }}>
+                  {uploadingFile ? 'Uploading...' : 'Send Document'}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                onPress={() => setShowAttachmentModal(false)}
                 style={{ backgroundColor: '#666', padding: 12, borderRadius: 8, marginTop: 15 }}
               >
                 <Text style={{ color: 'white', textAlign: 'center', fontSize: 16 }}>Cancel</Text>
