@@ -5,23 +5,25 @@ import  Add from './Add';
 import  Myprofile from './Myprofile';
 import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const Tab = createMaterialBottomTabNavigator();
 export default function Accueil(props) {
   return (
-    <Tab.Navigator
-      activeColor="#25D366"
-      inactiveColor="#667781"
-      barStyle={{
-        backgroundColor: '#FFFFFF',
-        borderTopWidth: 1,
-        borderTopColor: '#E0E0E0',
-        height: 65,
-        paddingBottom: 5
-      }}
-      labeled={true}
-      shifting={false}
-    >
+    <SafeAreaView style={{ flex: 1 }}>
+      <Tab.Navigator
+        activeColor="#25D366"
+        inactiveColor="#667781"
+        barStyle={{
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#E0E0E0',
+          height: 65,
+          paddingBottom: 5
+        }}
+        labeled={true}
+        shifting={false}
+      >
       <Tab.Screen 
         name="Contacts" 
         component={List}
@@ -61,6 +63,7 @@ export default function Accueil(props) {
           ),
         }}
       />
-    </Tab.Navigator>
+      </Tab.Navigator>
+    </SafeAreaView>
   )
 }

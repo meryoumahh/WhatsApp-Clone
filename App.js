@@ -7,6 +7,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppState } from 'react-native';
 import { useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import initapp from './Config';
 
 const Stack = createNativeStackNavigator();
@@ -32,14 +33,16 @@ export default function App() {
   }, []);
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Authentification" screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Authentification" component={Authentification} />
-        <Stack.Screen name="Signup" component={Signup} />
-        <Stack.Screen name="Accueil" component={Accueil} options={{headerShown : true}}/>
-        <Stack.Screen name="Add" component={Add} options={{headerShown : true}}/>
-        <Stack.Screen name="Chat" component={Chat} options={{headerShown : true}}/>
-      </Stack.Navigator>
-    </NavigationContainer>
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <Stack.Navigator initialRouteName="Authentification" screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Authentification" component={Authentification} />
+          <Stack.Screen name="Signup" component={Signup} />
+          <Stack.Screen name="Accueil" component={Accueil} options={{headerShown : true}}/>
+          <Stack.Screen name="Add" component={Add} options={{headerShown : true}}/>
+          <Stack.Screen name="Chat" component={Chat} options={{headerShown : true}}/>
+        </Stack.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
